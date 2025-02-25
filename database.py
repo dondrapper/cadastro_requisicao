@@ -1,32 +1,58 @@
 import sqlite3
+from datetime import datetime
 
-# Conectar ao banco de dados
-conn = sqlite3.connect("sistema.db")
-cursor = conn.cursor()
+def conectar_banco():
+    return sqlite3.connect("sistema.db")
 
-# Criar tabela de funcionários
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS FUNCIONARIOS (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT NOT NULL,
-    cpf TEXT UNIQUE NOT NULL,
-    setor TEXT NOT NULL,
-    codigo TEXT UNIQUE NOT NULL
-);
-""")
+def buscar_usuario_por_codigo(codigo):
+    conn = conectar_banco()
+    cursor = conn.cursor()
+    cursor.execute("SELECT nome FROM FUNCIONARIOS WHERE codigo = ?", (codigo,))
+    resultado = cursor.fetchone()
+    conn.close()
+    return resultado[0] if resultado else None
 
-# Criar tabela de requisições
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS REQUISICOES (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    codigo_funcionario TEXT NOT NULL,
-    codigo_requisicao TEXT NOT NULL,
-    data TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (codigo_funcionario) REFERENCES FUNCIONARIOS(codigo)
-);
-""")
+def verificar_requisicao(codigo_funcionario, codigo_requisicao):
+    conn = conectar_banco()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT data FROM REQUISICOES 
+        WHERE codigo_funcionario = ? AND codigo_requisicao = ?
+        ORDER BY data DESC LIMIT 1
+    """, (codigo_funcionario, codigo_requisicao))
+    resultado = cursor.fetchone()
+    conn.close()
 
-conn.commit()
-conn.close()
+    if resultado:
+        data_registro = resultado[0]
+        dt_registro = datetime.strptime(data_registro, "%Y-%m-%d %H:%M:%S")
+        tempo_passado = datetime.now() - dt_registro
+        return True, tempo_passado, data_registro
+    return False, None, None
 
-print("✅ Banco de dados e tabelas criados com sucesso!")
+def registrar_requisicao(codigo_funcionario, codigo_requisicao, data_hora_atual):
+    conn = conectar_banco()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO REQUISICOES (codigo_funcionario, codigo_requisicao, data)
+        VALUES (?, ?, ?)
+    """, (codigo_funcionario, codigo_requisicao, data_hora_atual))
+    conn.commit()
+    conn.close()
+
+def buscar_administrador(usuario):
+    conn = conectar_banco()
+    cursor = conn.cursor()
+    cursor.execute("SELECT usuario, senha FROM ADMINISTRADORES WHERE usuario = ?", (usuario,))
+    resultado = cursor.fetchone()
+    conn.close()
+    return resultado  # retorna (usuario, senha) ou None
+
+# 🔥 Função que estava faltando, corrigindo o erro atual.
+def listar_requisicoes():
+    conn = conectar_banco()
+    cursor = conn.cursor()
+    cursor.execute("SELECT codigo_funcionario, codigo_requisicao, data FROM REQUISICOES ORDER BY data DESC")
+    requisicoes = cursor.fetchall()
+    conn.close()
+    return requisicoes

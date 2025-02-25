@@ -1,52 +1,90 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
+import os
 
-# Função para conectar ao banco de dados
+# 🔹 ✅ Função para conectar ao banco de dados
 def conectar_banco():
     return sqlite3.connect("sistema.db")
 
-# Função para carregar funcionários
+# 🔹 ✅ Função para carregar funcionários
 def carregar_funcionarios():
     conn = conectar_banco()
     df = pd.read_sql("SELECT id, nome, cpf, setor, codigo FROM FUNCIONARIOS", conn)
     conn.close()
     return df
 
-# Função para excluir funcionário
-def excluir_funcionario(funcionario_id):
-    conn = conectar_banco()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM FUNCIONARIOS WHERE id = ?", (funcionario_id,))
-    conn.commit()
-    conn.close()
+# 🔹 ✅ Função para excluir múltiplos funcionários
+def excluir_funcionarios(ids_selecionados):
+    if ids_selecionados:
+        conn = conectar_banco()
+        cursor = conn.cursor()
+        for funcionario_id in ids_selecionados:
+            cursor.execute("DELETE FROM FUNCIONARIOS WHERE id = ?", (funcionario_id,))
+        conn.commit()
+        conn.close()
+        st.success(f"✅ {len(ids_selecionados)} funcionário(s) removido(s) com sucesso!")
+        st.rerun()
 
-# Configuração da interface
-st.set_page_config(page_title="Lista de Funcionários", layout="centered")
+# 🔹 ✅ Criar a função `app()` para ser chamada pelo `admin.py`
+def app():
+    """Carrega a página de listagem de crachás."""
 
-st.markdown("<h1 style='text-align: center;'>Funcionários Cadastrados</h1>", unsafe_allow_html=True)
+    # 🔹 ✅ Carregar CSS externo se disponível
+    if os.path.exists("style.css"):
+        with open("style.css") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# Botão para atualizar a lista
-if st.button("🔄 Atualizar Lista"):
-    st.experimental_rerun()
+    # 🔹 ✅ Exibir título centralizado
+    st.markdown("<h1 class='title'>📋 Listagem de Crachás</h1>", unsafe_allow_html=True)
 
-# Carregar e exibir os funcionários
-df = carregar_funcionarios()
+    # 🔹 ✅ Criando um container centralizado para os botões
+    st.markdown("<div class='button-container'>", unsafe_allow_html=True)
 
-# Exibir em formato de planilha com botão de exclusão
-if not df.empty:
-    for index, row in df.iterrows():
-        col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 2, 2, 2, 1])
-        col1.write(f"**{row['nome']}**")
-        col2.write(row['cpf'])
-        col3.write(row['setor'])
-        col4.write(row['codigo'])
-        
-        # Botão de exclusão
-        if col6.button("❌ Excluir", key=row["id"]):
-            excluir_funcionario(row["id"])
-            st.warning(f"⚠️ Funcionário {row['nome']} removido!")
-            st.experimental_rerun()
+    col1, col2 = st.columns([3, 1])  # Criar colunas para centralizar o botão de atualizar
+    with col1:
+        st.markdown("")  # Espaço vazio para alinhamento
+    with col2:
+        if st.button("🔄 Atualizar Lista", use_container_width=True):
+            st.rerun()
 
-else:
-    st.info("📌 Nenhum funcionário cadastrado.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # 🔹 ✅ Carregar e exibir os funcionários em uma tabela formatada
+    df = carregar_funcionarios()
+
+    # 🔹 ✅ Criar tabela interativa centralizada com checkboxes para seleção
+    if not df.empty:
+        st.markdown("<div class='table-container'>", unsafe_allow_html=True)
+
+        st.markdown("### 📜 Lista de Crachás:")
+        st.write("Selecione os funcionários que deseja excluir e clique no botão **Excluir Selecionados**.")
+
+        # Adicionando checkbox na primeira coluna
+        df.insert(0, "Selecionar", False)
+
+        # Criar tabela interativa usando `st.data_editor()`
+        tabela_editavel = st.data_editor(
+            df,
+            hide_index=True,
+            column_config={"Selecionar": st.column_config.CheckboxColumn()},
+            disabled=["id", "nome", "cpf", "setor", "codigo"],  # Bloqueia edição de outras colunas
+        )
+
+        # Filtrar os IDs dos funcionários selecionados para exclusão
+        ids_selecionados = tabela_editavel.loc[tabela_editavel["Selecionar"], "id"].tolist()
+
+        # 🔹 ✅ Centralizando o botão de exclusão
+        col1, col2, col3 = st.columns([3, 2, 3])  # Criar colunas para alinhar o botão no centro
+        with col2:
+            if ids_selecionados:
+                if st.button("❌ Excluir Selecionados", use_container_width=True):
+                    excluir_funcionarios(ids_selecionados)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.info("📌 Nenhum funcionário cadastrado.")
+
+# 🔹 ✅ Garantia que o script seja executado corretamente
+if __name__ == "__main__":
+    app()

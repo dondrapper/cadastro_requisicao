@@ -8,7 +8,7 @@ if barcode_type is None:
     print("Erro: O tipo de código de barras 'code128' não está disponível!")
 else:
     # Número do funcionário (ID)
-    employee_id = "2034"
+    employee_id = "54564645648"
 
     # Criar código de barras
     employee_barcode = barcode_type(employee_id, writer=ImageWriter())
