@@ -18,8 +18,8 @@ if "etapa" not in st.session_state:
 
 # Se a página for "admin", chama o arquivo admin.py e para a execução deste script
 if st.session_state["page"] == "admin":
-    import admin  # Certifique-se de que admin.py esteja no mesmo diretório
-    admin.app()  # Supondo que a função principal em admin.py seja "app()"
+    import admin_GPT  # Certifique-se de que admin.py esteja no mesmo diretório
+    admin_GPT.app()  # Supondo que a função principal em admin.py seja "app()"
     st.stop()
 
 # --- Funções Auxiliares ---
@@ -116,13 +116,13 @@ elif st.session_state["etapa"] == "requisicao":
     st.markdown("<h3 style='text-align: center;'>Faça a leitura do código de barras</h3>", unsafe_allow_html=True)
     st.info(f"👤 Usuário autenticado: **{st.session_state['usuario']}**")
     codigo_requisicao = st.text_input(
-        "Escaneie o código do item (Apenas números, 13 caracteres)", 
-        max_chars=13, 
+        "Escaneie o código do item (Apenas números, 12 caracteres)", 
+        max_chars=12, 
         key=f"codigo_requisicao_{st.session_state['input_key']}"
     )
     if codigo_requisicao:
-        if not codigo_requisicao.isdigit() or len(codigo_requisicao) != 13:
-            st.error("⚠ O código de barras precisa ter exatamente **13 números**!")
+        if not codigo_requisicao.isdigit() or len(codigo_requisicao) != 12:
+            st.error("⚠ O código de barras precisa ter exatamente **12 números**!")
             time.sleep(3)
             resetar_input()
             st.rerun()
