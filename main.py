@@ -12,7 +12,7 @@ from database import (
 )
 
 # Importar o novo módulo de captura de códigos de barras
-from api_barcode import init_barcode_listener, check_for_barcode, display_barcode_messages
+from api_barcode import init_barcode_listener, check_for_barcode, display_barcode_messages, init_session_state
 
 # Configuração da página
 st.set_page_config(page_title="Sistema de Controle", layout="centered")
@@ -32,6 +32,9 @@ if "etapa" not in st.session_state:
 if "auto_capture" not in st.session_state:
     st.session_state["auto_capture"] = True
 
+# Garantir que as variáveis de sessão para os códigos de barras estejam inicializadas
+init_session_state()
+
 def resetar_input():
     """Incrementa a chave de input para limpar os campos de texto."""
     st.session_state["input_key"] += 1
@@ -48,7 +51,10 @@ def exibir_contagem_regressiva(segundos=10):
         time.sleep(1)
 
 # Inicializar o listener de códigos de barras
-init_barcode_listener()
+try:
+    init_barcode_listener()
+except Exception as e:
+    st.error(f"Erro ao inicializar o listener de códigos de barras: {str(e)}")
 
 # Verificar a página atual e carregar o conteúdo correspondente
 if st.session_state["page"] == "admin":
@@ -79,8 +85,18 @@ else:
             st.info("✨ A captura automática está ativada. Use a extensão Chrome para escanear seu crachá.")
             
             # Verificar se há um código de barras capturado pela extensão
-            if check_for_barcode():
-                st.rerun()  # Recarregar para processar o código
+            try:
+                if check_for_barcode():
+                    # Se estamos na tela de login e o login foi bem-sucedido, devemos recarregar a página
+                    # para mostrar a tela de requisição
+                    if st.session_state.get("etapa") == "requisicao" and st.session_state.get("usuario"):
+                        st.rerun()
+                    else:
+                        # Caso contrário, apenas verificamos novamente
+                        time.sleep(0.1)
+                        check_for_barcode()
+            except Exception as e:
+                st.error(f"Erro ao verificar código de barras: {str(e)}")
                 
             # Ainda manter o campo manual como fallback
             st.markdown("### Ou insira manualmente:")
@@ -103,7 +119,10 @@ else:
         st.info(f"👤 Usuário autenticado: **{st.session_state['usuario']}**")
         
         # Exibir histórico de mensagens de leitura de códigos de barras
-        display_barcode_messages()
+        try:
+            display_barcode_messages()
+        except Exception as e:
+            st.error(f"Erro ao exibir mensagens de códigos de barras: {str(e)}")
         
         # Opção para habilitar/desabilitar captura automática
         auto_capture = st.checkbox("Habilitar captura automática via extensão Chrome", 
@@ -115,8 +134,11 @@ else:
             st.info("✨ A captura automática está ativada. Use a extensão Chrome para escanear os códigos de barras.")
             
             # Verificar se há um código de barras capturado pela extensão
-            if check_for_barcode():
-                st.rerun()  # Recarregar para processar o código
+            try:
+                if check_for_barcode():
+                    st.rerun()  # Recarregar para processar o código
+            except Exception as e:
+                st.error(f"Erro ao verificar código de barras: {str(e)}")
                 
             # Ainda manter o campo manual como fallback
             st.markdown("### Ou insira manualmente:")
