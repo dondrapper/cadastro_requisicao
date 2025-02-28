@@ -1,21 +1,27 @@
+"""
+Módulo de utilitários para o sistema de controle.
+Contém funções reutilizáveis para geração e manipulação de crachás.
+"""
+
 import barcode
 from barcode.writer import ImageWriter
 import streamlit as st
 import io
 from PIL import Image, ImageDraw, ImageFont
 import base64
+import bcrypt
 
 def gerar_cracha(codigo, nome, setor):
     """
-    Gera um crachá com código de barras para o funcionário
+    Gera um crachá com código de barras para o funcionário.
     
     Args:
-        codigo (str): Código do funcionário (CPF)
-        nome (str): Nome do funcionário
-        setor (str): Setor do funcionário
+        codigo (str): Código do funcionário (CPF).
+        nome (str): Nome do funcionário.
+        setor (str): Setor do funcionário.
         
     Returns:
-        bytes: Imagem do crachá em formato bytes
+        bytes: Imagem do crachá em formato bytes ou None em caso de erro.
     """
     try:
         # Obter o tipo de código de barras
@@ -77,12 +83,15 @@ def gerar_cracha(codigo, nome, setor):
 
 def download_cracha(codigo, nome, setor):
     """
-    Cria um botão para download do crachá
+    Cria um botão para download do crachá no Streamlit.
     
     Args:
-        codigo (str): Código do funcionário (CPF)
-        nome (str): Nome do funcionário
-        setor (str): Setor do funcionário
+        codigo (str): Código do funcionário (CPF).
+        nome (str): Nome do funcionário.
+        setor (str): Setor do funcionário.
+        
+    Returns:
+        bool: True se o crachá foi gerado e disponibilizado para download, False caso contrário.
     """
     cracha_bytes = gerar_cracha(codigo, nome, setor)
     
@@ -99,3 +108,56 @@ def download_cracha(codigo, nome, setor):
         
         return True
     return False
+
+def hash_senha(senha):
+    """
+    Cria um hash seguro para a senha usando bcrypt.
+    
+    Args:
+        senha (str): Senha em texto simples.
+        
+    Returns:
+        str: Hash da senha codificado.
+    """
+    return bcrypt.hashpw(senha.encode(), bcrypt.gensalt()).decode()
+
+def verificar_senha(senha_digitada, senha_armazenada):
+    """
+    Verifica se a senha digitada corresponde ao hash armazenado.
+    
+    Args:
+        senha_digitada (str): Senha fornecida pelo usuário.
+        senha_armazenada (str): Hash da senha armazenado no banco.
+        
+    Returns:
+        bool: True se a senha corresponde ao hash, False caso contrário.
+    """
+    return bcrypt.checkpw(senha_digitada.encode(), senha_armazenada.encode())
+
+def validar_cpf(cpf):
+    """
+    Valida se o CPF possui 11 dígitos e contém apenas números.
+    
+    Args:
+        cpf (str): CPF a ser validado.
+        
+    Returns:
+        bool: True se o CPF é válido, False caso contrário.
+    """
+    return cpf.isdigit() and len(cpf) == 11
+
+def carregar_estilo_css():
+    """
+    Carrega o arquivo CSS se existir e aplica ao Streamlit.
+    
+    Returns:
+        bool: True se o arquivo foi carregado, False caso contrário.
+    """
+    try:
+        if os.path.exists("style.css"):
+            with open("style.css") as css:
+                st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
+            return True
+        return False
+    except Exception:
+        return False

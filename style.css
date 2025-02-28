@@ -1,103 +1,39 @@
-/* Estilo Geral */
-html, body, [class*="stApp"] {
-    font-family: 'Segoe UI', sans-serif;
-    background-color: #f5f6fa;
+/* Adicione estas regras ao seu arquivo style.css existente */
+
+/* Melhorar a aparência dos dropdown (selectbox) */
+.stSelectbox > div[data-baseweb="select"] > div {
+    background-color: #ffffff;
+    color: #333333;
+    border: 1px solid #dcdde1;
+    border-radius: 5px;
+    padding: 2px 5px;
+    font-size: 14px;
+}
+
+/* Garantir que o texto selecionado seja visível */
+.stSelectbox > div[data-baseweb="select"] div[data-testid="stMarkdownContainer"] p {
+    color: #000000 !important;
+    opacity: 1 !important;
+}
+
+/* Ajustar o menu de dropdown quando aberto */
+div[role="listbox"] ul {
+    background-color: #ffffff;
+    border: 1px solid #dcdde1;
+    border-radius: 5px;
+}
+
+div[role="listbox"] li {
     color: #333333;
 }
 
-/* Títulos principais */
-h1 {
-    text-align: center;
-    font-size: 28px;
-    color: #4078c0;
+/* Estilo para a opção selecionada no menu dropdown */
+div[role="listbox"] li[aria-selected="true"] {
+    background-color: #e6f3ff;
+    font-weight: bold;
 }
 
-/* Subtítulos */
-h3 {
-    color: #555555;
-}
-
-/* Inputs Streamlit */
-.stTextInput input, .stSelectbox>div>div {
-    border-radius: 8px;
-    border: 1px solid #bdc3c7;
-    padding: 8px;
-}
-
-/* Botões gerais Streamlit */
-.stButton button {
-    background-color: #4078c0;
-    color: white;
-    border-radius: 5px;
-    transition: all 0.2s ease-in-out;
-}
-
-.stButton button:hover {
-    background-color: #30598c;
-    transform: scale(1.05);
-}
-
-/* Mensagens de sucesso, alerta e erro */
-.stSuccess {
-    background-color: #4cd137;
-    color: white;
-    border-radius: 8px;
-    padding: 15px;
-}
-
-.stError {
-    background-color: #e84118;
-    color: white;
-    border-radius: 5px;
-}
-
-.stWarning {
-    border-radius: 5px;
-}
-
-/* Campos de texto */
-.stTextInput input {
-    border-radius: 5px;
-    border: 2px solid #dcdde1;
-    padding: 10px;
-}
-
-/* Container para tabela */
-.table-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding-top: 20px;
-}
-
-/* Personalizando tabela */
-table {
-    width: 90%;
-    border-collapse: collapse;
-    margin: auto;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-table th, table td {
-    text-align: center;
-    padding: 12px;
-}
-
-table th {
-    background-color: #4078c0;
-    color: white;
-}
-
-table tr:nth-child(even) {
-    background-color: #ffffff;
-}
-
-table tr:nth-child(odd) {
+/* Adicionar um sutil efeito de hover nas opções do dropdown */
+div[role="listbox"] li:hover {
     background-color: #f0f4fc;
-}
-
-table tr:hover {
-    background-color: #dcdde1;
-    transition: background-color 0.3s;
 }

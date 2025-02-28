@@ -1,18 +1,23 @@
-# auth.py
-import bcrypt
+"""
+Módulo de autenticação para o sistema de controle.
+"""
+
+from utils import verificar_senha, hash_senha
 from database import buscar_administrador
 
-def hash_senha(senha):
-    """Retorna a senha encriptada com bcrypt"""
-    return bcrypt.hashpw(senha.encode(), bcrypt.gensalt()).decode()
-
-def verificar_senha(senha_digitada, senha_armazenada):
-    """Verifica se a senha digitada corresponde ao hash armazenado"""
-    return bcrypt.checkpw(senha_digitada.encode(), senha_armazenada.encode())
-
 def autenticar_admin(usuario, senha_digitada):
+    """
+    Autentica um administrador verificando suas credenciais.
+    
+    Args:
+        usuario (str): Nome de usuário do administrador.
+        senha_digitada (str): Senha fornecida para autenticação.
+        
+    Returns:
+        bool: True se as credenciais são válidas, False caso contrário.
+    """
     admin_data = buscar_administrador(usuario)
     if admin_data:
         usuario_db, senha_hash_db = admin_data
-        return bcrypt.checkpw(senha_digitada.encode(), senha_hash_db.encode())
+        return verificar_senha(senha_digitada, senha_hash_db)
     return False

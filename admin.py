@@ -1,3 +1,8 @@
+"""
+Módulo da interface administrativa do sistema.
+Gerencia o painel administrativo, autenticação e navegação.
+"""
+
 import streamlit as st
 import relatorio_requisicoes
 import listagem
@@ -30,9 +35,6 @@ def inicializar_estado():
     
     if "admin_page" not in st.session_state:
         st.session_state["admin_page"] = DASHBOARD
-        
-    if "page" not in st.session_state:
-        st.session_state["page"] = LOGIN
 
 def criar_menu():
     """Cria o menu de navegação administrativa"""
@@ -47,17 +49,54 @@ def criar_menu():
             if st.button(item["titulo"]):
                 if item["pagina"] is None:  # Caso de logout
                     st.session_state["admin_authenticated"] = False
-                    st.session_state["page"] = LOGIN
+                    st.session_state["page"] = "login"
                     st.rerun()
                 else:
                     st.session_state["admin_page"] = item["pagina"]
+                    st.rerun()
 
 def exibir_conteudo():
     """Exibe o conteúdo da página selecionada"""
     pagina_atual = st.session_state["admin_page"]
     
     if pagina_atual == DASHBOARD:
-        st.markdown("### 📊 Bem-vindo à área administrativa! Selecione uma opção acima.")
+        st.markdown("### 📊 Bem-vindo à área administrativa!")
+        st.markdown("Selecione uma opção no menu acima para gerenciar o sistema.")
+        
+        # Exibir estatísticas básicas
+        try:
+            import sqlite3
+            import pandas as pd
+            
+            conn = sqlite3.connect("sistema.db")
+            
+            # Estatísticas de funcionários
+            funcionarios_df = pd.read_sql("SELECT COUNT(*) as total, setor FROM FUNCIONARIOS GROUP BY setor", conn)
+            
+            # Estatísticas de requisições
+            req_df = pd.read_sql("""
+                SELECT COUNT(*) as total, 
+                       strftime('%Y-%m-%d', data) as data 
+                FROM REQUISICOES 
+                GROUP BY strftime('%Y-%m-%d', data)
+                ORDER BY data DESC
+                LIMIT 7
+            """, conn)
+            
+            # Exibir estatísticas
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("Funcionários por Setor")
+                st.dataframe(funcionarios_df)
+            
+            with col2:
+                st.subheader("Requisições Recentes")
+                st.dataframe(req_df)
+                
+            conn.close()
+        except Exception as e:
+            st.error(f"Erro ao carregar estatísticas: {str(e)}")
     
     elif pagina_atual == LISTAGEM_CRACHAS:
         listagem.app()
@@ -78,17 +117,26 @@ def exibir_login():
     usuario = st.text_input("Usuário", key="admin_usuario")
     senha = st.text_input("Senha", type="password", key="admin_senha")
     
-    if st.button("🔑 Entrar"):
-        if autenticar_admin(usuario, senha):
-            st.session_state["admin_authenticated"] = True
-            st.success("✅ Login efetuado com sucesso!")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col2:
+        if st.button("🔑 Entrar", use_container_width=True):
+            if autenticar_admin(usuario, senha):
+                st.session_state["admin_authenticated"] = True
+                st.success("✅ Login efetuado com sucesso!")
+                st.rerun()
+            else:
+                st.error("🚫 Usuário ou senha incorretos!")
+    
+    with col3:
+        if st.button("🔙 Voltar ao Sistema", use_container_width=True):
+            st.session_state["page"] = "login"
             st.rerun()
-        else:
-            st.error("🚫 Usuário ou senha incorretos!")
 
 def painel_admin():
     """Gerencia o painel administrativo"""
     criar_menu()
+    st.markdown("<hr>", unsafe_allow_html=True)
     exibir_conteudo()
 
 def app():
@@ -100,6 +148,6 @@ def app():
     else:
         painel_admin()
 
-# Executa o aplicativo diretamente
+# Executa o aplicativo diretamente se chamado como script principal
 if __name__ == "__main__":
     app()

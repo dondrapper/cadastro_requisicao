@@ -1,40 +1,42 @@
 import streamlit as st
 import sqlite3
+import os
 
-# Configuração da página
-st.set_page_config(page_title="Cadastro de Funcionários", layout="centered")
+# No início do seu arquivo, logo após imports e set_page_config
+if os.path.exists("style.css"):
+    with open("style.css") as css:
+        st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
+def app():
+    
 
-st.markdown("<h1 style='text-align: center; font-size: 18px;'>Cadastro de Funcionários</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>Cadastro de Usuários 👤</h1>", unsafe_allow_html=True)
 
-# Conectar ao banco
-conn = sqlite3.connect("sistema.db")
-cursor = conn.cursor()
+    usuario = st.text_input("Usuário 👤")
+    senha = st.text_input("Senha 🔒", type="password")
+    senha_confirma = st.text_input("Confirme a Senha 🔒", type="password")
 
-# Criar formulário
-with st.form("cadastro_form"):
-    nome = st.text_input("Nome", max_chars=50)
-    cpf = st.text_input("CPF", max_chars=11)
-    setor = st.text_input("Setor", max_chars=30)
-    codigo = st.text_input("Código do Crachá", max_chars=10)
+    if st.button("Cadastrar Usuário ✅"):
+        if not usuario or not senha or not senha_confirma:
+            st.warning("Por favor, preencha todos os campos.")
+        elif senha != senha_confirma:
+            st.error("As senhas não conferem!")
+        else:
+            try:
+                conn = sqlite3.connect("sistema.db")
+                cursor = conn.cursor()
+                
+                cursor.execute("SELECT * FROM ADMINISTRADORES WHERE usuario = ?", (usuario,))
+                if cursor.fetchone():
+                    st.error("Usuário já cadastrado!")
+                else:
+                    cursor.execute("INSERT INTO ADMINISTRADORES (usuario, senha) VALUES (?, ?)", (usuario, senha))
+                    conn.commit()
+                    st.success("Usuário cadastrado com sucesso! 🎉")
+                    
+            except Exception as e:
+                st.error("Erro ao cadastrar usuário: " + str(e))
+            finally:
+                conn.close()
 
-    # Botões
-    col1, col2 = st.columns(2)
-    with col1:
-        limpar = st.form_submit_button("🧹 Limpar")
-    with col2:
-        cadastrar = st.form_submit_button("✅ Cadastrar")
-
-# Ação do botão "Cadastrar"
-if cadastrar:
-    if nome and cpf and setor and codigo:
-        try:
-            cursor.execute("INSERT INTO FUNCIONARIOS (nome, cpf, setor, codigo) VALUES (?, ?, ?, ?)",
-                           (nome, cpf, setor, codigo))
-            conn.commit()
-            st.success(f"✅ Funcionário {nome} cadastrado com sucesso!")
-        except sqlite3.IntegrityError:
-            st.error("❌ CPF ou Código já cadastrados!")
-    else:
-        st.warning("⚠️ Preencha todos os campos!")
-
-conn.close()
+if __name__ == "__main__":
+    app()
