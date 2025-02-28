@@ -3,7 +3,7 @@ let barcodeBuffer = '';
 let lastKeyTime = 0;
 let barcodeTimer = null;
 const MAX_DELAY = 100;  // Tempo máximo entre caracteres (ms)
-const SUBMIT_DELAY = 300;  // Tempo para envio automático após último caractere (ms)
+const SUBMIT_DELAY = 50;  // Tempo reduzido para envio automático (ms)
 const END_CHAR = 'Enter';  // Caractere que indica fim da leitura
 
 // Detectar se estamos em uma página Streamlit
@@ -36,43 +36,29 @@ document.addEventListener('keydown', function(event) {
     
     lastKeyTime = currentTime;
     
-    // Se for a tecla de fim da leitura (normalmente Enter) ou se passou um tempo desde o último caractere
-    if (event.key === END_CHAR || (currentTime - lastKeyTime > MAX_DELAY && barcodeBuffer.length > 3)) {
-        if (barcodeBuffer.length > 3) {  // Verificar se tem tamanho mínimo para ser um código
-            // Primeiro enviar para o script de background (funcionamento original)
-            chrome.runtime.sendMessage({
-                type: "barcode_scanned",
-                data: barcodeBuffer
-            });
-            
-            // Se estivermos em uma página Streamlit, enviar para ela também
+    // Se for a tecla de fim da leitura (Enter) ou qualquer caractere de um código de barras
+    if (event.key === END_CHAR || (event.key.length === 1 && /[\d]/.test(event.key))) {
+        // Se for Enter ou um dígito, adiciona ao buffer
+        if (event.key === END_CHAR) {
+            // Prevenir comportamento padrão do Enter em páginas Streamlit
             if (isStreamlitPage()) {
-                sendToStreamlit(barcodeBuffer);
-            }
-            
-            // Limpar o buffer
-            barcodeBuffer = '';
-            
-            // Se estivermos em uma página Streamlit e for a tecla Enter, prevenir o comportamento padrão
-            // para evitar submissão de formulário ou outras ações
-            if (isStreamlitPage() && event.key === END_CHAR) {
                 event.preventDefault();
             }
+        } else if (event.key.length === 1) {
+            // Adicionar caractere ao buffer (apenas caracteres simples)
+            barcodeBuffer += event.key;
         }
-    } else if (event.key.length === 1) {
-        // Adicionar caractere ao buffer (apenas caracteres simples)
-        barcodeBuffer += event.key;
         
         // Limpar qualquer timer anterior
         if (barcodeTimer) {
             clearTimeout(barcodeTimer);
         }
         
-        // Se estamos em uma página Streamlit, configurar um timer para envio automático
+        // Configurar um timer para envio automático se estamos em página Streamlit
         if (isStreamlitPage()) {
             barcodeTimer = setTimeout(() => {
-                // Se o buffer ainda tem conteúdo, enviar automaticamente
-                if (barcodeBuffer.length > 3) {
+                // Se o buffer tem conteúdo suficiente ou o Enter foi pressionado
+                if (barcodeBuffer.length > 3 || event.key === END_CHAR) {
                     console.log('Enviando código automaticamente:', barcodeBuffer);
                     
                     // Enviar para o script de background

@@ -18,6 +18,8 @@ def init_session_state():
         st.session_state["last_barcode_time"] = 0
     if "barcode_messages" not in st.session_state:
         st.session_state["barcode_messages"] = []
+    if "last_processed_barcode" not in st.session_state:
+        st.session_state["last_processed_barcode"] = None
 
 # Inicializar as variáveis de sessão
 init_session_state()
@@ -55,7 +57,7 @@ def init_barcode_listener():
             };
             window.Streamlit.setComponentValue(args);
         }
-        setTimeout(checkBarcodeData, 100); // Verificar periodicamente
+        setTimeout(checkBarcodeData, 50); // Verificar mais frequentemente (50ms)
     }
     
     // Iniciar a verificação
@@ -76,6 +78,17 @@ def process_incoming_barcode(barcode_value):
     Returns:
         tuple: (processado, mensagem)
     """
+    # Verificar se é o mesmo código que acabou de ser processado (debounce)
+    if st.session_state.get("last_processed_barcode") == barcode_value:
+        # Se foi processado nos últimos 0.5 segundos, ignora
+        current_time = time.time()
+        if current_time - st.session_state.get("last_barcode_time", 0) < 0.5:
+            return False, "Código repetido ignorado"
+    
+    # Atualizar o último código processado e timestamp
+    st.session_state["last_processed_barcode"] = barcode_value
+    st.session_state["last_barcode_time"] = time.time()
+    
     # Verificar se o código é válido
     if not barcode_value or not isinstance(barcode_value, str) or not barcode_value.isdigit():
         return False, "Código de barras inválido"
