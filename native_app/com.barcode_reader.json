@@ -1,0 +1,9 @@
+{
+    "name": "com.barcode_reader",
+    "description": "Leitor de código de barras nativo",
+    "path": "D:\\ARQUIVOS\\DOCUMENTOS\\GitHub\\cadastro_requisicao\\native_app\\barcode_host.py",
+    "type": "stdio",
+    "allowed_origins": [
+      "chrome-extension:// bdnoplmflfpnkobdigbhapkinlnmfofo/"
+    ]
+  }

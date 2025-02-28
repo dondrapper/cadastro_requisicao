@@ -11,6 +11,9 @@ from database import (
     salvar_requisicao
 )
 
+# Importar o novo módulo de captura de códigos de barras
+from api_barcode import init_barcode_listener, check_for_barcode, display_barcode_messages
+
 # Configuração da página
 st.set_page_config(page_title="Sistema de Controle", layout="centered")
 
@@ -26,6 +29,8 @@ if "input_key" not in st.session_state:
     st.session_state["input_key"] = 0
 if "etapa" not in st.session_state:
     st.session_state["etapa"] = "login"
+if "auto_capture" not in st.session_state:
+    st.session_state["auto_capture"] = True
 
 def resetar_input():
     """Incrementa a chave de input para limpar os campos de texto."""
@@ -41,6 +46,9 @@ def exibir_contagem_regressiva(segundos=10):
     for i in range(segundos, 0, -1):
         countdown_placeholder.warning(f"Encerrando sessão em {i} segundos...")
         time.sleep(1)
+
+# Inicializar o listener de códigos de barras
+init_barcode_listener()
 
 # Verificar a página atual e carregar o conteúdo correspondente
 if st.session_state["page"] == "admin":
@@ -60,7 +68,24 @@ else:
     # --- Tela de Login (Escanear Crachá) ---
     if st.session_state["etapa"] == "login":
         st.markdown("<h3 style='text-align: center;'>Aproxime o crachá para identificação</h3>", unsafe_allow_html=True)
-        codigo_funcionario = st.text_input("Escaneie seu Crachá", max_chars=11)
+        
+        # Opção para habilitar/desabilitar captura automática
+        auto_capture = st.checkbox("Habilitar captura automática via extensão Chrome", 
+                                  value=st.session_state["auto_capture"],
+                                  key="auto_capture_checkbox")
+        st.session_state["auto_capture"] = auto_capture
+        
+        if auto_capture:
+            st.info("✨ A captura automática está ativada. Use a extensão Chrome para escanear seu crachá.")
+            
+            # Verificar se há um código de barras capturado pela extensão
+            if check_for_barcode():
+                st.rerun()  # Recarregar para processar o código
+                
+            # Ainda manter o campo manual como fallback
+            st.markdown("### Ou insira manualmente:")
+            
+        codigo_funcionario = st.text_input("Código do Crachá", max_chars=11)
         if codigo_funcionario:
             nome = autenticar_funcionario(codigo_funcionario)
             if nome:
@@ -76,11 +101,37 @@ else:
     elif st.session_state["etapa"] == "requisicao":
         st.markdown("<h3 style='text-align: center;'>Faça a leitura do código de barras</h3>", unsafe_allow_html=True)
         st.info(f"👤 Usuário autenticado: **{st.session_state['usuario']}**")
+        
+        # Exibir histórico de mensagens de leitura de códigos de barras
+        display_barcode_messages()
+        
+        # Opção para habilitar/desabilitar captura automática
+        auto_capture = st.checkbox("Habilitar captura automática via extensão Chrome", 
+                                  value=st.session_state["auto_capture"],
+                                  key="auto_capture_requisicao")
+        st.session_state["auto_capture"] = auto_capture
+        
+        if auto_capture:
+            st.info("✨ A captura automática está ativada. Use a extensão Chrome para escanear os códigos de barras.")
+            
+            # Verificar se há um código de barras capturado pela extensão
+            if check_for_barcode():
+                st.rerun()  # Recarregar para processar o código
+                
+            # Ainda manter o campo manual como fallback
+            st.markdown("### Ou insira manualmente:")
+            
         codigo_requisicao = st.text_input(
             "Escaneie o código do item (Apenas números, 12 caracteres)", 
             max_chars=12, 
             key=f"codigo_requisicao_{st.session_state['input_key']}"
         )
+        
+        # Botão para sair/logout
+        if st.button("🚪 Sair"):
+            st.session_state["etapa"] = "login"
+            st.rerun()
+            
         if codigo_requisicao:
             if not codigo_requisicao.isdigit() or len(codigo_requisicao) != 12:
                 st.error("⚠ O código de barras precisa ter exatamente **12 números**!")
@@ -109,7 +160,6 @@ else:
                         st.success(f"✅ Requisição registrada com sucesso!\n🕒 {data_hora_atual}")
                         time.sleep(3)
                         resetar_input()
-                        st.session_state["etapa"] = "login"
                         st.rerun()
                     else:
                         st.error("❌ Erro ao registrar requisição. Tente novamente.")
