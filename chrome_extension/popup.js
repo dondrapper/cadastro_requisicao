@@ -56,8 +56,11 @@ function checkForStreamlit() {
         let found = false;
         for (let tab of tabs) {
             // Verificar pela URL ou título se é uma página Streamlit
-            if (tab.url.includes('streamlit') || 
-                (tab.title && tab.title.toLowerCase().includes('streamlit'))) {
+            if (tab.url && (
+                tab.url.includes('streamlit') || 
+                tab.url.includes('localhost:8501') ||
+                (tab.title && tab.title.toLowerCase().includes('streamlit'))
+            )) {
                 found = true;
                 updateStreamlitStatus(true, tab.id);
                 break;
@@ -73,12 +76,18 @@ function checkForStreamlit() {
 // Verificar status da conexão
 function checkConnection() {
     chrome.runtime.sendMessage({type: "check_connection"}, function(response) {
-        updateConnectionStatus(response && response.connected, response ? response.message : null);
+        if (response) {
+            updateConnectionStatus(response.connected, response.message);
+        } else {
+            updateConnectionStatus(false, "Erro ao verificar conexão");
+        }
     });
 }
 
 // Adicionar código ao histórico
 function addToHistory(code) {
+    if (!code) return;
+    
     barcodeHistory.push({
         code: code,
         timestamp: Date.now()
@@ -97,17 +106,19 @@ function addToHistory(code) {
 }
 
 // Carregar histórico salvo
-chrome.storage.local.get(['barcodeHistory', 'scanMode'], function(data) {
-    if (data.barcodeHistory) {
-        barcodeHistory = data.barcodeHistory;
-        updateHistory();
-    }
-    
-    if (data.scanMode) {
-        currentMode = data.scanMode;
-        modeSelect.value = currentMode;
-    }
-});
+function loadSavedData() {
+    chrome.storage.local.get(['barcodeHistory', 'scanMode'], function(data) {
+        if (data.barcodeHistory) {
+            barcodeHistory = data.barcodeHistory;
+            updateHistory();
+        }
+        
+        if (data.scanMode) {
+            currentMode = data.scanMode;
+            modeSelect.value = currentMode;
+        }
+    });
+}
 
 // Trocar o modo de escaneamento
 function changeMode(mode) {
@@ -117,18 +128,36 @@ function changeMode(mode) {
     // Notificar todas as abas que o modo mudou
     chrome.tabs.query({}, function(tabs) {
         for (let tab of tabs) {
-            chrome.tabs.sendMessage(tab.id, {
-                type: "mode_changed",
-                mode: mode
-            }).catch(err => {
+            try {
+                chrome.tabs.sendMessage(tab.id, {
+                    type: "mode_changed",
+                    mode: mode
+                });
+            } catch (err) {
+                // Ignorar erros para abas que não têm o content script
                 console.log("Erro ao enviar para tab:", err);
-            });
+            }
         }
     });
 }
 
+// Inicializar extensão
+function initialize() {
+    // Carregar dados salvos
+    loadSavedData();
+    
+    // Verificar conexão
+    checkConnection();
+    
+    // Verificar status do Streamlit
+    checkForStreamlit();
+}
+
 // Escutar eventos de botão
-testButton.addEventListener('click', checkConnection);
+testButton.addEventListener('click', function() {
+    checkConnection();
+    checkForStreamlit();
+});
 
 clearButton.addEventListener('click', function() {
     barcodeHistory = [];
@@ -141,9 +170,20 @@ modeSelect.addEventListener('change', function() {
     changeMode(modeSelect.value);
 });
 
-// Escutar mensagens de código de barras
+// Escutar mensagens de código de barras e outras mensagens
 chrome.runtime.onMessage.addListener(function(message) {
+    console.log("Mensagem recebida no popup:", message);
+    
     if (message.type === 'barcode_scanned') {
-        addToHistory(message.code);
+        addToHistory(message.code || message.data);
+    } 
+    else if (message.type === 'streamlit_status') {
+        updateStreamlitStatus(message.detected);
     }
 });
+
+// Inicializar quando o documento estiver carregado
+document.addEventListener('DOMContentLoaded', initialize);
+
+// Verificar Streamlit periodicamente
+setInterval(checkForStreamlit, 5000);

@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime
 import time
 import os
+import json
 
 # Importações centralizadas
 from database import (
@@ -18,6 +19,59 @@ st.set_page_config(page_title="Sistema de Controle", layout="centered")
 if os.path.exists("style.css"):
     with open("style.css") as css:
         st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
+
+# Adicionar JavaScript para integração com a extensão de código de barras
+barcode_integration_js = """
+<script>
+// Escutar mensagens da extensão Chrome
+window.addEventListener('message', function(event) {
+    // Verificar se a mensagem é um código de barras
+    if (event.data && event.data.type === 'barcode_data') {
+        const barcode = event.data.data;
+        console.log('Código de barras recebido da extensão:', barcode);
+        
+        // Encontrar o campo de entrada apropriado com base na etapa atual
+        const currentPage = %s;
+        let inputSelector = '';
+        
+        if (currentPage === 'login') {
+            // Na tela de login, procurar campo de crachá
+            inputSelector = 'input[aria-label="Escaneie seu Crachá"]';
+        } else if (currentPage === 'requisicao') {
+            // Na tela de requisição, procurar campo de código de barras
+            inputSelector = 'input[aria-label="Escaneie o código do item (Apenas números, 12 caracteres)"]';
+        }
+        
+        if (inputSelector) {
+            const inputField = document.querySelector(inputSelector);
+            if (inputField) {
+                // Preencher o campo com o código
+                inputField.value = barcode;
+                // Disparar eventos para notificar o Streamlit
+                inputField.dispatchEvent(new Event('input', { bubbles: true }));
+                inputField.dispatchEvent(new Event('change', { bubbles: true }));
+                // Emular pressionar Enter
+                setTimeout(() => {
+                    inputField.dispatchEvent(new KeyboardEvent('keydown', {
+                        key: 'Enter', 
+                        code: 'Enter',
+                        keyCode: 13,
+                        which: 13,
+                        bubbles: true
+                    }));
+                }, 100);
+            }
+        }
+    }
+}, false);
+
+// Sinalizar para a extensão que esta página está pronta
+window.postMessage({
+    type: 'streamlit_ready',
+    page: %s
+}, '*');
+</script>
+"""
 
 # --- Inicialização das variáveis de sessão ---
 if "page" not in st.session_state:
@@ -48,6 +102,10 @@ if st.session_state["page"] == "admin":
     admin.app()
     st.stop()
 else:
+    # Injetar o JavaScript para integração com a extensão
+    etapa_atual = json.dumps(st.session_state["etapa"])
+    st.markdown(barcode_integration_js % (etapa_atual, etapa_atual), unsafe_allow_html=True)
+    
     # Cabeçalho com título e botão administrador
     header_col1, header_col2 = st.columns([8, 2])
     with header_col1:
