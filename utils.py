@@ -3,6 +3,7 @@ Módulo de utilitários para o sistema de controle.
 Contém funções reutilizáveis para geração e manipulação de crachás.
 """
 
+import os
 import barcode
 from barcode.writer import ImageWriter
 import streamlit as st
