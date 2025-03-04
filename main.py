@@ -4,6 +4,7 @@ from datetime import datetime
 import time
 import os
 import json
+import streamlit.components.v1 as components
 
 # Importações centralizadas
 from database import (
@@ -20,59 +21,6 @@ if os.path.exists("style.css"):
     with open("style.css") as css:
         st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
 
-# Adicionar JavaScript para integração com a extensão de código de barras
-barcode_integration_js = """
-<script>
-// Escutar mensagens da extensão Chrome
-window.addEventListener('message', function(event) {
-    // Verificar se a mensagem é um código de barras
-    if (event.data && event.data.type === 'barcode_data') {
-        const barcode = event.data.data;
-        console.log('Código de barras recebido da extensão:', barcode);
-        
-        // Encontrar o campo de entrada apropriado com base na etapa atual
-        const currentPage = %s;
-        let inputSelector = '';
-        
-        if (currentPage === 'login') {
-            // Na tela de login, procurar campo de crachá
-            inputSelector = 'input[aria-label="Escaneie seu Crachá"]';
-        } else if (currentPage === 'requisicao') {
-            // Na tela de requisição, procurar campo de código de barras
-            inputSelector = 'input[aria-label="Escaneie o código do item (Apenas números, 12 caracteres)"]';
-        }
-        
-        if (inputSelector) {
-            const inputField = document.querySelector(inputSelector);
-            if (inputField) {
-                // Preencher o campo com o código
-                inputField.value = barcode;
-                // Disparar eventos para notificar o Streamlit
-                inputField.dispatchEvent(new Event('input', { bubbles: true }));
-                inputField.dispatchEvent(new Event('change', { bubbles: true }));
-                // Emular pressionar Enter
-                setTimeout(() => {
-                    inputField.dispatchEvent(new KeyboardEvent('keydown', {
-                        key: 'Enter', 
-                        code: 'Enter',
-                        keyCode: 13,
-                        which: 13,
-                        bubbles: true
-                    }));
-                }, 100);
-            }
-        }
-    }
-}, false);
-
-// Sinalizar para a extensão que esta página está pronta
-window.postMessage({
-    type: 'streamlit_ready',
-    page: %s
-}, '*');
-</script>
-"""
-
 # --- Inicialização das variáveis de sessão ---
 if "page" not in st.session_state:
     st.session_state["page"] = "login"  # Valores possíveis: "login", "requisicao", "admin"
@@ -80,6 +28,11 @@ if "input_key" not in st.session_state:
     st.session_state["input_key"] = 0
 if "etapa" not in st.session_state:
     st.session_state["etapa"] = "login"
+if "js_counter" not in st.session_state:
+    st.session_state["js_counter"] = 0
+
+# Incrementar contador para garantir a execução do JavaScript
+st.session_state["js_counter"] += 1
 
 def resetar_input():
     """Incrementa a chave de input para limpar os campos de texto."""
@@ -96,15 +49,137 @@ def exibir_contagem_regressiva(segundos=10):
         countdown_placeholder.warning(f"Encerrando sessão em {i} segundos...")
         time.sleep(1)
 
+# Script JavaScript para proteção do botão Deploy e foco automático
+def injetar_js_protetor():
+    counter = st.session_state["js_counter"]
+    etapa_atual = st.session_state["etapa"]
+    js_code = f"""
+    <script>
+    // Função executada quando a página carrega
+    (function() {{
+        console.log("Inicializando proteção do botão Deploy (counter: {counter})");
+        
+        // 1. Proteger o botão Deploy
+        function protectDeployButton() {{
+            // Encontrar o botão Deploy (usa o seletor de um botão que contenha "Deploy" no texto ou esteja no cabeçalho)
+            const deployButton = window.parent.document.querySelector('button[data-baseweb="button"]');
+            if (deployButton) {{
+                console.log("Botão Deploy encontrado, aplicando proteção");
+                
+                // Criar um bloqueador de eventos para o botão
+                const blockHandler = function(event) {{
+                    // Se o evento não foi gerado por um clique humano direto
+                    if (!event.isTrusted) {{
+                        console.log("Bloqueando clique automático no botão Deploy");
+                        event.preventDefault();
+                        event.stopPropagation();
+                        event.stopImmediatePropagation();
+                        return false;
+                    }}
+                }};
+                
+                // Adicionar o bloqueador em fase de captura
+                deployButton.addEventListener('click', blockHandler, true);
+                
+                // Podemos também desabilitar temporariamente o botão durante a leitura
+                const originalPointerEvents = deployButton.style.pointerEvents;
+                
+                // Monitorar teclas para detectar leitura de código de barras
+                let barcodeBuffer = '';
+                let lastKeyTime = 0;
+                const MAX_DELAY = 100;  // ms entre teclas
+                
+                window.parent.document.addEventListener('keydown', function(event) {{
+                    const currentTime = new Date().getTime();
+                    
+                    // Se é parte de uma leitura rápida (típico de scanner)
+                    if (event.key.length === 1 && /[\\d]/.test(event.key)) {{
+                        if (currentTime - lastKeyTime > MAX_DELAY) {{
+                            // Nova leitura iniciando, desabilitar botão temporariamente
+                            deployButton.style.pointerEvents = 'none';
+                            barcodeBuffer = '';
+                        }}
+                        barcodeBuffer += event.key;
+                        lastKeyTime = currentTime;
+                    }}
+                    else if (event.key === 'Enter' && barcodeBuffer.length > 0) {{
+                        // Fim da leitura, processar e restaurar botão após um delay
+                        setTimeout(function() {{
+                            deployButton.style.pointerEvents = originalPointerEvents;
+                        }}, 500);
+                        
+                        // Se causou problemas com o botão Deploy, parar propagação do Enter
+                        if (event.target.tagName === 'INPUT') {{
+                            event.stopPropagation();
+                        }}
+                    }}
+                }}, true);
+                
+                return true;
+            }}
+            return false;
+        }}
+        
+        // 2. Focar no campo de entrada apropriado com base na etapa atual
+        function focusInput() {{
+            // Determinar qual campo focar com base na etapa atual
+            const etapa = '{etapa_atual}';
+            let inputSelector = '';
+            
+            if (etapa === 'login') {{
+                // Na tela de login, procurar campo de crachá
+                inputSelector = 'input[aria-label="Escaneie seu Crachá"]';
+            }} else if (etapa === 'requisicao') {{
+                // Na tela de requisição, procurar campo de código de barras
+                inputSelector = 'input[aria-label="Escaneie o código do item (Apenas números, 12 caracteres)"]';
+            }}
+            
+            if (inputSelector) {{
+                const inputField = window.parent.document.querySelector(inputSelector);
+                if (inputField) {{
+                    console.log("Campo encontrado para etapa " + etapa + ", aplicando foco");
+                    setTimeout(() => inputField.focus(), 100);
+                    return true;
+                }}
+            }}
+            
+            // Fallback: tentar focar em qualquer input de texto visível
+            const visibleInputs = window.parent.document.querySelectorAll('input[type="text"]:not([disabled]):not([readonly])');
+            if (visibleInputs.length > 0) {{
+                console.log("Campo de entrada encontrado (fallback), aplicando foco");
+                setTimeout(() => visibleInputs[0].focus(), 100);
+                return true;
+            }}
+            
+            return false;
+        }}
+        
+        // Tenta aplicar as proteções imediatamente
+        let deployProtected = protectDeployButton();
+        let inputFocused = focusInput();
+        
+        // Se falhar, tentar novamente após um curto delay (DOM pode não estar totalmente carregado)
+        if (!deployProtected || !inputFocused) {{
+            setTimeout(function() {{
+                if (!deployProtected) deployProtected = protectDeployButton();
+                if (!inputFocused) inputFocused = focusInput();
+            }}, 300);
+        }}
+    }})();
+    </script>
+    """
+    
+    # Injetar o JavaScript via components.html
+    components.html(js_code, height=0)
+
 # Verificar a página atual e carregar o conteúdo correspondente
 if st.session_state["page"] == "admin":
     import admin
     admin.app()
     st.stop()
 else:
-    # Injetar o JavaScript para integração com a extensão
-    etapa_atual = json.dumps(st.session_state["etapa"])
-    st.markdown(barcode_integration_js % (etapa_atual, etapa_atual), unsafe_allow_html=True)
+    # Injetar JavaScript de proteção do botão Deploy e foco automático
+    injetar_js_protetor()
     
     # Cabeçalho com título e botão administrador
     header_col1, header_col2 = st.columns([8, 2])
